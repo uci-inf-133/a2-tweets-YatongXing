@@ -30,9 +30,7 @@ function parseTweets(runkeeper_tweets) {
   // Consider only completed-event tweets for activity & distance
   const completed = tweet_array.filter(t => t.source === 'completed_event');
 
-  // -----------------------------
   // 1) Count tweets per activity
-  // -----------------------------
   const counts = new Map();
   const typesSet = new Set();
   for (const t of completed) {
@@ -70,9 +68,7 @@ function parseTweets(runkeeper_tweets) {
   };
   vegaEmbed('#activityVis', activity_vis_spec, {actions:false});
 
-  // ------------------------------------------
   // 2) Distances by day for top-3 activities
-  // ------------------------------------------
   const distanceRows = completed
     .map(t => ({
       activityType: t.activityType || 'Other',
@@ -136,9 +132,7 @@ function parseTweets(runkeeper_tweets) {
     });
   }
 
-  // ------------------------------------------
   // 3) Fill narrative answers from the data
-  // ------------------------------------------
   const byTypeDistances = new Map();
   for (const r of distanceRows) {
     if (!byTypeDistances.has(r.activityType)) byTypeDistances.set(r.activityType, []);
