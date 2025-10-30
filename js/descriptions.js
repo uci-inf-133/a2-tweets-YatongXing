@@ -1,7 +1,7 @@
 let tweet_array = [];
 let written_tweets = [];
 
-// --- helpers ---
+// helpers
 function $(id) { return document.getElementById(id); }
 function clearTable() {
   const tbody = $('tweetTable');
