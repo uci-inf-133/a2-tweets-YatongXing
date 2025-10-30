@@ -14,7 +14,7 @@ const SOURCE_RULES: Array<[SourceKey, RegExp]> = [
   ['miscellaneous', /.*/]
 ];
 
-// ---------- small helpers (private use only) ----------
+// helpers
 function stripTrailer(s: string): string {
   // Remove the canonical “#RunKeeper … http(s)://…” trailer and any stray #RunKeeper tags
   return s.replace(DEFAULT_TRAILER_RX, '').replace(/#RunKeeper/gi, '').trim();
@@ -75,7 +75,7 @@ class Tweet {
     this.time = new Date(time);
   }
 
-  /** Lowercased copy for quick matches */
+  // Lowercased copy for quick matches
   private get lc(): string {
     return this.text.toLowerCase();
   }
