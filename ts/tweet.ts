@@ -14,130 +14,129 @@ const SOURCE_RULES: Array<[SourceKey, RegExp]> = [
   ['miscellaneous', /.*/]
 ];
 
-// ===== Helpers (internal only) =====
-function stripDefaultTrailer(text: string): string {
-  // Remove the standard "#RunKeeper ... http(s)://..." tail so only user text remains.
-  return text.replace(DEFAULT_TRAILER_RX, '').trim();
+// ---------- small helpers (private use only) ----------
+function stripTrailer(s: string): string {
+  // Remove the canonical “#RunKeeper … http(s)://…” trailer and any stray #RunKeeper tags
+  return s.replace(DEFAULT_TRAILER_RX, '').replace(/#RunKeeper/gi, '').trim();
 }
 
 function classifySource(text: string): SourceKey {
-  const match = SOURCE_RULES.find(([_, rx]) => rx.test(text));
-  return (match?.[0] ?? 'miscellaneous');
+  const t = stripTrailer(text);
+  for (const [key, rx] of SOURCE_RULES) {
+    if (rx.test(t)) return key;
+  }
+  return 'miscellaneous';
+}
+
+// Extract the first URL (RunKeeper tends to append one)
+function firstUrl(text: string): string | null {
+  const m = text.match(/https?:\/\/\S+/);
+  return m ? m[0] : null;
+}
+
+// Try to parse an activity (run, walk, cycle, etc.)
+function detectActivity(text: string): string {
+  const t = stripTrailer(text).toLowerCase();
+  if (/\brun(?:ning)?\b/.test(t)) return 'Run';
+  if (/\bwalk(?:ing)?\b/.test(t)) return 'Walk';
+  if (/\b(hike|hiking)\b/.test(t)) return 'Hike';
+  if (/\b(bike|biking|ride|riding|cycling|cycle)\b/.test(t)) return 'Bike';
+  if (/\bswim(?:ming)?\b/.test(t)) return 'Swim';
+  if (/\brow(?:ing)?\b/.test(t)) return 'Row';
+  return 'Other';
+}
+
+// Try to parse a distance like "5.00 mi" or "10 km"
+function detectDistance(text: string): number | undefined {
+  const t = stripTrailer(text);
+
+  // Common patterns in RunKeeper auto-text:
+  // "Just completed a 5.00 mi run", "Finished a 10 km walk"
+  const mi = t.match(/(\d+(?:\.\d+)?)\s*mi\b/i);
+  if (mi) return Number(mi[1]);
+
+  const km = t.match(/(\d+(?:\.\d+)?)\s*km\b/i);
+  if (km) {
+    const miles = Number(km[1]) * 0.621371; // convert to miles to keep one unit
+    return Number.isFinite(miles) ? miles : undefined;
+  }
+  return undefined;
+}
+
+// Format a date like “Monday, January 18, 2021”
+function fmtLongDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 class Tweet {
-	private text:string;
-	time:Date;
+  public readonly text: string;
+  public readonly time: Date;
 
-	constructor(tweet_text:string, tweet_time:string) {
-        this.text = tweet_text ?? '';
-		this.time = new Date(tweet_time);//, "ddd MMM D HH:mm:ss Z YYYY"
-	}
+  constructor(text: string, time: string) {
+    this.text = text ?? '';
+    this.time = new Date(time);
+  }
 
-	private get activityUrl(): string | null {
-    const m = this.text.match(/https?:\/\/\S+/i);
-    return m ? m[0] : null;
-  	}
+  /** Lowercased copy for quick matches */
+  private get lc(): string {
+    return this.text.toLowerCase();
+  }
 
-	/** Lowercased copy for quick matches */
-	private get lc(): string {
-	return this.text.toLowerCase();
-	}
-	
-	//returns either 'live_event', 'achievement', 'completed_event', or 'miscellaneous'
-    get source():string {
-        //TODO: identify whether the source is a live event, an achievement, a completed event, or miscellaneous.
-        return classifySource(this.text);
-    }
+  //returns either 'live_event', 'achievement', 'completed_event', or 'miscellaneous'
+  get source(): string {
+    // identify whether the source is a live event, an achievement, a completed event, or miscellaneous.
+    return classifySource(this.text);
+  }
 
-    //returns a boolean, whether the text includes any content written by the person tweeting.
-    get written():boolean {
-        //TODO: identify whether the tweet is written
-    	const cleaned = this.writtenText;
-    	return cleaned.length > 0;
-    }
+  //returns a boolean, whether the text includes any content written by the person tweeting.
+  get written(): boolean {
+    // For completed-event tweets, people often add a comment after " - ".
+    // Example: "Just completed a 5.00 mi run - Felt great!"
+    if (this.source !== 'completed_event') return false;
+    const body = stripTrailer(this.text);
+    const parts = body.split(/\s[-–—]\s/); // split on spaced dash
+    return parts.length > 1 && parts[1].trim().length > 0;
+  }
 
-    get writtenText():string {
-        if(!this.written) {
-            return "";
-        }
-        //TODO: parse the written text from the tweet
-		// 1) remove the tail "#RunKeeper … http…"
-	    let cleaned = stripDefaultTrailer(this.text);
-	
-	    // 2) remove common boilerplate fragments that aren't truly user-written
-	    const AUTO_PHRASES: RegExp[] = [
-			/\bwith\s+runkeeper\b\.?/i,
-    		/\bvia\s+@?runkeeper\b\.?/i
-	    ];
-	    AUTO_PHRASES.forEach(rx => (cleaned = cleaned.replace(rx, ' ')));
-	
-	    // 3) collapse whitespace / trim punctuation noise
-	    cleaned = cleaned.replace(/\s{2,}/g, ' ').replace(/^[\s\-\–\—\:;,\.]+|[\s\-\–\—\:;,\.]+$/g, '');
-	
-        return cleaned.trim();
-    }
+  //returns any written text. returns empty string if the tweet doesn't contain written text.
+  get writtenText(): string {
+    if (!this.written) return '';
+    const body = stripTrailer(this.text);
+    const parts = body.split(/\s[-–—]\s/);
+    return parts.slice(1).join(' - ').trim();
+  }
 
-    get activityType():string {
-        if (this.source != 'completed_event') {
-            return "unknown";
-        }
-        //TODO: parse the activity type from the text of the tweet
-        // Look for activity keywords (include aliases)
-	    const ACTIVITY_MAP: Array<[string, RegExp]> = [
-	      ['run', /\brun(?:ning)?\b/i],
-	      ['walk', /\bwalk(?:ing)?\b/i],
-	      ['cycle', /\b(?:cycle|cycling|bike|biking|ride|riding)\b/i],
-	      ['hike', /\bhik(?:e|ing)\b/i],
-	      ['swim', /\bswim(?:ming)?\b/i],
-	      ['row', /\brow(?:ing)?\b/i],
-	      ['ski', /\bski(?:ing)?\b/i],
-	      ['yoga', /\byoga\b/i],
-	      // add more if your data uses others (elliptical, treadmill, etc.)
-	    ];
-	    const hit = ACTIVITY_MAP.find(([_, rx]) => rx.test(this.text));
-	    return hit ? hit[0] : 'unknown';
-    }
+  // Activity type (Run/Walk/Bike/Swim/Other)
+  get activityType(): string {
+    return detectActivity(this.text);
+  }
 
-    get distance():number {
-        if(this.source != 'completed_event') {
-            return 0;
-        }
-        //TODO: prase the distance from the text of the tweet
-        // Patterns: “5.00 mi”, “10 km”
-	    const m = this.text.match(/(\d+(?:\.\d+)?)\s*(mi|km)\b/i);
-	    if (!m) return 0;
-	
-	    const value = parseFloat(m[1]);
-	    const unit = m[2].toLowerCase();
-	
-	    if (isNaN(value)) return 0;
-	    // Convert km → miles so the UI can display a single unit
-	    return unit === 'km' ? value * 0.621371 : value; // miles
-    }
+  // Distance in miles if present, otherwise undefined
+  get distance(): number | undefined {
+    return detectDistance(this.text);
+  }
 
-    getHTMLTableRow(rowNumber:number):string {
-        //TODO: return a table row which summarizes the tweet with a clickable link to the RunKeeper activity
-        const dateStr = this.time.toLocaleString('en-US', {
-	      year: 'numeric', month: 'short', day: 'numeric',
-	      hour: '2-digit', minute: '2-digit'
-	    });
-	
-	    const src = this.source;
-	    const act = this.activityType;
-	    const dist = this.distance > 0 ? `${this.distance.toFixed(2)} mi` : '';
-	    const url = this.activityUrl;
-	    const linkHtml = url ? `<a href="${url}" target="_blank" rel="noopener">link</a>` : '';
-	
-	    return [
-	      '<tr>',
-	      `<td>${rowNumber}</td>`,
-	      `<td>${dateStr}</td>`,
-	      `<td>${src}</td>`,
-	      `<td>${act}</td>`,
-	      `<td>${dist}</td>`,
-	      `<td>${linkHtml}</td>`,
-	      '</tr>'
-	    ].join('');
-    }
+  // Builds a table row string for the Descriptions/Activities pages if needed later.
+  writeTableRow(rowNumber: number): string {
+    const dateStr = Number.isNaN(+this.time) ? '' : fmtLongDate(this.time);
+    const src = this.source;
+    const act = this.activityType;
+    const dist = this.distance !== undefined ? this.distance.toFixed(2) : '';
+    const url = firstUrl(this.text);
+    const linkHtml = url ? `<a href="${url}" target="_blank" rel="noopener">link</a>` : '';
+
+    return [
+      '<tr>',
+      `<td>${rowNumber}</td>`,
+      `<td>${dateStr}</td>`,
+      `<td>${src}</td>`,
+      `<td>${act}</td>`,
+      `<td>${dist}</td>`,
+      `<td>${linkHtml}</td>`,
+      '</tr>'
+    ].join('');
+  }
 }
+
+// Expose globally for non-module scripts
+(window as any).Tweet = Tweet;
