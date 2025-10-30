@@ -67,26 +67,14 @@ class Tweet {
 	
 	    // 2) remove common boilerplate fragments that aren't truly user-written
 	    const AUTO_PHRASES: RegExp[] = [
-	      /\bwith\s+runkeeper\b\.?/i,
-	      /\bcheck\s+it\s+out!?\.?/i,
-	      /\bvia\s+@?runkeeper\b\.?/i,
-	      /\bfrom\s+runkeeper\b\.?/i
+			/\bwith\s+runkeeper\b\.?/i,
+    		/\bvia\s+@?runkeeper\b\.?/i
 	    ];
 	    AUTO_PHRASES.forEach(rx => (cleaned = cleaned.replace(rx, ' ')));
 	
 	    // 3) collapse whitespace / trim punctuation noise
 	    cleaned = cleaned.replace(/\s{2,}/g, ' ').replace(/^[\s\-\–\—\:;,\.]+|[\s\-\–\—\:;,\.]+$/g, '');
 	
-	    // 4) if remaining content looks like a pure template, treat as empty (not user-written)
-	    const TEMPLATE_RXES: RegExp[] = [
-	      // "Just completed a 5.00 mi run", "Finished a 10 km walk"
-	      /^just\s+(?:completed|finished)\s+.+$/i,
-	      // "I'm now running" / "Currently walking"
-	      /^(?:i'?m\s+)?(?:now|currently)\s+.+$/i,
-	      // "Achieved a goal", "New personal record"
-	      /^(?:achiev(?:ed|ement)|new\s+personal\s+record|set\s+a\s+goal).+$/i
-	    ];
-	    if (TEMPLATE_RXES.some(rx => rx.test(cleaned))) cleaned = '';
         return cleaned.trim();
     }
 
