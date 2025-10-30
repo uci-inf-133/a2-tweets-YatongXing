@@ -38,18 +38,11 @@ function parseTweets(runkeeper_tweets) {
 	setTextById('firstDate', fmtDate(earliest));
 	setTextById('lastDate',  fmtDate(latest));
 	
-	// 3) Category counts
-	const counts = {
-		completed_event: 0,
-		live_event: 0,
-		achievement: 0,
-		miscellaneous: 0
-	};
-	
+	// 3) Category counts (single pass)
+	const counts = { completed_event: 0, live_event: 0, achievement: 0, miscellaneous: 0 };
 	for (const t of tweet_array) {
-		const s = t.source;
-		if (s in counts) counts[s] += 1;
-		else counts.miscellaneous += 1;
+		const s = (s => (s in counts ? s : 'miscellaneous'))(t.source);
+		counts[s] += 1;
 	}
 
   	// 4) Write category counts & percentages with one loop
