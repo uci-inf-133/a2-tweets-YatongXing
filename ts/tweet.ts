@@ -36,23 +36,28 @@ function firstUrl(text: string): string | null {
 
 // Try to parse an activity (run, walk, cycle, etc.)
 function detectActivity(text: string): string {
-  const t = this.text.toLowerCase().replace(/#runkeeper/gi,'');
-  if (t.includes('run')) return 'Run';
-  if (t.includes('walk')) return 'Walk';
-  if (t.includes('hike')) return 'Hike';
-  if (t.includes('bike') || t.includes('ride') || t.includes('cycling') || t.includes('cycle')) return 'Bike';
-  if (t.includes('swim')) return 'Swim';
-  if (t.includes('row')) return 'Row';
+  const t = stripTrailer(text).toLowerCase();
+  if (/\brun(?:ning)?\b/.test(t)) return 'Run';
+  if (/\bwalk(?:ing)?\b/.test(t)) return 'Walk';
+  if (/\b(hike|hiking)\b/.test(t)) return 'Hike';
+  if (/\b(bike|biking|ride|riding|cycling|cycle)\b/.test(t)) return 'Bike';
+  if (/\bswim(?:ming)?\b/.test(t)) return 'Swim';
+  if (/\brow(?:ing)?\b/.test(t)) return 'Row';
   return 'Other';
 }
 
 // Try to parse a distance like "5.00 mi" or "10 km"
 function detectDistance(text: string): number | undefined {
-  const s = this.text;
-  const mi = s.match(/(\d+(?:\.\d+)?)\s*mi\b/i);
+  const t = stripTrailer(text);
+
+  // Miles
+  const mi = t.match(/(\d+(?:\.\d+)?)\s*mi\b/i);
   if (mi) return Number(mi[1]);
-  const km = s.match(/(\d+(?:\.\d+)?)\s*km\b/i);
+
+  // Kilometers -> miles (1 km ≈ 0.621371 mi)
+  const km = t.match(/(\d+(?:\.\d+)?)\s*km\b/i);
   if (km) return Number(km[1]) * 0.621371;
+
   return undefined;
 }
 
