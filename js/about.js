@@ -1,6 +1,6 @@
 let tweet_array = [];
 
-// --- small DOM helpers ---
+// DOM helpers
 function setTextById(id, text) {
   const el = document.getElementById(id);
   if (el) el.innerText = text;
@@ -38,7 +38,7 @@ function parseTweets(runkeeper_tweets) {
 	for (const t of tweet_array) {
 		const s = t.source;
 		if (s in counts) counts[s] += 1;
-			else counts.miscellaneous += 1; // safety fallback
+			else counts.miscellaneous += 1;
 	}
 	
 	// 4) Fill counts & percentages (two decimals)
