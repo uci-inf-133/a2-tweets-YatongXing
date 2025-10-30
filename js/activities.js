@@ -72,7 +72,7 @@ function parseTweets(runkeeper_tweets) {
   const distanceRows = completed
     .map(t => ({
       activityType: t.activityType || 'Other',
-      distance: t.distance,                 // in miles (Tweet getter does conversion)
+      distance: t.distance,
       dow: t.time.getDay(),
       day: DAY_LABELS[t.time.getDay()]
     }))
