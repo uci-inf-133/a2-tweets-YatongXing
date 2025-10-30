@@ -5,7 +5,7 @@ let distance_vis_agg_spec;
 
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-// --- small helpers ---
+// helpers
 function setText(id, v) {
   const el = document.getElementById(id);
   if (el) el.textContent = v;
