@@ -1,3 +1,22 @@
+let tweet_array = [];
+
+// --- small DOM helpers ---
+function setTextById(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.innerText = text;
+}
+function setTextByClass(cls, text) {
+  document.querySelectorAll(`.${cls}`).forEach(el => { el.textContent = text; });
+}
+function fmtDate(d) {
+  // Monday, January 18, 2021 style
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+function fmtPct(numerator, denominator) {
+  if (!denominator) return '0.00%';
+  return ( (numerator / denominator) * 100 ).toFixed(2) + '%';
+}
+
 function parseTweets(runkeeper_tweets) {
 	//Do not proceed if no tweets loaded
 	if(runkeeper_tweets === undefined) {
@@ -8,10 +27,55 @@ function parseTweets(runkeeper_tweets) {
 	tweet_array = runkeeper_tweets.map(function(tweet) {
 		return new Tweet(tweet.text, tweet.created_at);
 	});
+
+	// 1) Total count
+  	setTextById('numberTweets', tweet_array.length);
+
+	// 2) Earliest & latest dates
+	const times = tweet_array.map(t => t.time).filter(d => d instanceof Date && !isNaN(+d));
+	const earliest = new Date(Math.min(...times.map(d => +d)));
+	const latest   = new Date(Math.max(...times.map(d => +d)));
+	setTextById('firstDate', fmtDate(earliest));
+	setTextById('lastDate',  fmtDate(latest));
+	
+	// 3) Category counts
+	const counts = {
+		completed_event: 0,
+		live_event: 0,
+		achievement: 0,
+		miscellaneous: 0
+	};
+	
+	for (const t of tweet_array) {
+		const s = t.source;
+		if (s in counts) counts[s] += 1;
+		else counts.miscellaneous += 1; // fallback safety
+	}
+
+  	// 4) Fill counts & percentages (two decimals)
+  	const N = tweet_array.length;
 	
 	//This line modifies the DOM, searching for the tag with the numberTweets ID and updating the text.
 	//It works correctly, your task is to update the text of the other tags in the HTML file!
-	document.getElementById('numberTweets').innerText = tweet_array.length;	
+	//document.getElementById('numberTweets').innerText = tweet_array.length;	
+	setTextByClass('completedEvents', String(counts.completed_event));
+	setTextByClass('completedEventsPct', ((counts.completed_event / N) * 100).toFixed(2) + '%');
+	
+	setTextByClass('liveEvents', String(counts.live_event));
+	setTextByClass('liveEventsPct', ((counts.live_event / N) * 100).toFixed(2) + '%');
+	
+	setTextByClass('achievements', String(counts.achievement));
+	setTextByClass('achievementsPct', ((counts.achievement / N) * 100).toFixed(2) + '%');
+	
+	setTextByClass('miscellaneous', String(counts.miscellaneous));
+	setTextByClass('miscellaneousPct', ((counts.miscellaneous / N) * 100).toFixed(2) + '%');
+	
+	// user-written among completed events
+	const completedTweets = tweet_array.filter(t => t.source === 'completed_event');
+	const completedWritten = completedTweets.filter(t => t.written === true);
+	setTextByClass('written', String(completedWritten.length));
+	setTextByClass('writtenPct', ((completedWritten.length / (completedTweets.length || 1)) * 100).toFixed(2) + '%');
+
 }
 
 //Wait for the DOM to load
