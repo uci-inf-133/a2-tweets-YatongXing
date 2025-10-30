@@ -49,33 +49,29 @@ function parseTweets(runkeeper_tweets) {
 	for (const t of tweet_array) {
 		const s = t.source;
 		if (s in counts) counts[s] += 1;
-		else counts.miscellaneous += 1; // fallback safety
+		else counts.miscellaneous += 1;
 	}
 
-  	// 4) Fill counts & percentages (two decimals)
-  	const N = tweet_array.length;
+  	// 4) Write category counts & percentages with one loop
+	const CATEGORY_CLASS = {
+		completed_event: 'completedEvents',
+		live_event: 'liveEvents',
+		achievement: 'achievements',
+		miscellaneous: 'miscellaneous'
+	};
+	Object.entries(CATEGORY_CLASS).forEach(([src, cls]) => {
+		setTextByClass(cls, String(counts[src]));
+		setTextByClass(cls + 'Pct', fmtPct(counts[src], N));
+	});
 	
 	//This line modifies the DOM, searching for the tag with the numberTweets ID and updating the text.
 	//It works correctly, your task is to update the text of the other tags in the HTML file!
 	//document.getElementById('numberTweets').innerText = tweet_array.length;	
-	setTextByClass('completedEvents', String(counts.completed_event));
-	setTextByClass('completedEventsPct', ((counts.completed_event / N) * 100).toFixed(2) + '%');
-	
-	setTextByClass('liveEvents', String(counts.live_event));
-	setTextByClass('liveEventsPct', ((counts.live_event / N) * 100).toFixed(2) + '%');
-	
-	setTextByClass('achievements', String(counts.achievement));
-	setTextByClass('achievementsPct', ((counts.achievement / N) * 100).toFixed(2) + '%');
-	
-	setTextByClass('miscellaneous', String(counts.miscellaneous));
-	setTextByClass('miscellaneousPct', ((counts.miscellaneous / N) * 100).toFixed(2) + '%');
-	
-	// user-written among completed events
+	// 5) User-written among completed events (tweet.ts decides what "written" means)
 	const completedTweets = tweet_array.filter(t => t.source === 'completed_event');
 	const completedWritten = completedTweets.filter(t => t.written === true);
 	setTextByClass('written', String(completedWritten.length));
-	setTextByClass('writtenPct', ((completedWritten.length / (completedTweets.length || 1)) * 100).toFixed(2) + '%');
-
+	setTextByClass('writtenPct', fmtPct(completedWritten.length, completedTweets.length));
 }
 
 //Wait for the DOM to load
